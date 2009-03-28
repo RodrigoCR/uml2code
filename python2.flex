@@ -1,55 +1,124 @@
 %{ 
 int num_lines = 0;
 int num_level = 0;
+int num_base_level = 0;
+int num_chars_current_line = 0;
 %} 
 
-ALEVEL ""|"__"
+ALEVEL [:blank:]*(""|"__")
 CLASS "class"
 FUNCTION "def"
 CNAME [A-Z][a-zA-Z0-9_]*
-FNAME [a-z][a-zA-Z0-9_]*
+FVNAME [a-z][a-zA-Z0-9_]*
 EXTENDS ""|"("+[A-Z][a-zA-Z0-9_]*+")"
-COMMENT "#"
-VARS ""|[a-zA-Z]*|[a-zA-Z0-9_]*[','][' ']*
+SLCOMMENT "#"
+MLCOMMENT "'''"
+VARS ""|([a-z][a-zA-Z0-9_]*[' ']*[',']?[' ']*)*([a-z][a-zA-Z0-9_]*[' ']*)?
+CONSTRUCTOR "__init__"
+
+%x mlcomment
+%x slcomment
+%x method
 
 %% 
 \n     {
 	num_lines++;
 	num_level=0;
+	num_chars_current_line = 0;
 }
-\t     {num_level++;}
+\t     {
+	if(num_chars_current_line == 0)
+		num_level++;
+}
+" "     {
+	if(num_chars_current_line == 0)
+		num_level++;
+}
+
+"'''"  { 
+	BEGIN(mlcomment); 
+}
+"#"     {
+	BEGIN(slcomment);
+}
+
+<mlcomment>{
+\n     {
+	num_lines++;
+}
+"'''"     {
+	BEGIN(INITIAL);
+	printf("End of multiline comment at line %d\n", num_lines + 1);
+}
+.     {}
+}
+<slcomment>{
+\n     {
+	num_lines++;
+	BEGIN(INITIAL);
+	printf("End of single line comment at line %d\n", num_lines);
+}
+.     {}
+}
+
+<method>{
+\n     {
+	num_lines++;
+	num_level=0;
+	num_chars_current_line = 0;
+}
+
+\t     {
+	if(num_chars_current_line == 0)
+		num_level++;
+}
+" "     {
+	if(num_chars_current_line == 0)
+		num_level++;
+}
+
+":"     {}
+
+.		{
+	if(num_level <= num_base_level) {
+		BEGIN(INITIAL);
+		printf("End of method at line %d\n", num_lines);
+	}
+}
+}
+
 
 {CLASS}+" "+{ALEVEL}+{CNAME}+{EXTENDS}     {
-	char *nom = NULL;
-	char *extends = NULL;
 	int alevel = 0, exts=0, lclassn, lextcn;
-	int i, j, temp;
+	int cnstart, ecnstart, j;
 	if(yytext[6] == '_'){
-		i = 8;
-		temp = 7;
+		cnstart = 8;
 		alevel = 1;
 	} else {
-		i = 6;
-		temp = 5;
+		cnstart = 6;
 	}
-	for(j = i; j < yyleng; j++){
+	for(j = cnstart; j < yyleng; j++){
 		if(yytext[j] == '('){
-			i = j - 1;
+			ecnstart = j + 1;
 			exts = 1;
 			break; break;
 		}
 	}
-	if(exts == 0)
-		i = yyleng - 1;
-	lclassn = i - temp;
-	lextcn = yyleng - i - 1;
-	nom = malloc(lclassn);
-	extends = malloc(lextcn);
-	for(j = 0; j < lclassn; ++j){
-		nom[j] = yytext[j + temp + 1];
+	if(exts == 0) {
+		lextcn = 1;
+		ecnstart = yyleng + 1;
 	}
-	for(j = 0; j < lextcn; ++j){
-		extends[j] = yytext[j + temp + lclassn + 2];
+	else
+		lextcn = yyleng - ecnstart - 1;
+	lclassn = ecnstart - 1 - cnstart;
+	
+	char *nom = malloc(lclassn);
+	char *extends = malloc(lextcn);
+	for(j = 0; j < lclassn; j++){
+		nom[j] = yytext[j + cnstart];
+	}
+	for(j = 0; j < lextcn; j++){
+		extends[j] = yytext[j + ecnstart];
 	}
 	printf("Found class: %s\n", nom);
 	if(exts==0) { 
@@ -65,31 +134,98 @@ VARS ""|[a-zA-Z]*|[a-zA-Z0-9_]*[','][' ']*
 	free(extends);
 }
 
-{FUNCTION}+" "+{ALEVEL}+{FNAME}+"("+{VARS}+")"     {
-	char *nom = NULL;
-	nom = malloc(yyleng);
-	int i, espacio;
-	int j = 0;
-	for(i = yyleng-1; i > 0; --i){
-		if(yytext[i] == ' '){
-			espacio = i;
+{FUNCTION}+" "+{CONSTRUCTOR}+"("+{VARS}+")"     {
+	printf(" * Constructor: %s\n", yytext);
+	int i=13, varlen, j, endofvars = 0, varsn = 0;
+	while(endofvars == 0) {
+		if(yytext[i] == ')'){
+			endofvars = 1;
+			printf(" * * [ No. of vars parsed: %d ]\n", varsn);
+			break;break;
+		}
+		for(j=i; j<yyleng; j++){
+			if(yytext[j] == ',' || yytext[j] == ')'){
+				varlen = j - i;
+				varsn++;
+				break;break;
+			}
+		}
+		char *varname = malloc(varlen);
+		for(j=0; j<varlen; j++){
+			varname[j] = yytext[i + j];
+		}
+		printf(" * * Receives var: %s (of length %d / %d)\n", varname, varlen, strlen(varname));
+		free(varname);
+		i+= (varlen);
+		if(yytext[i] == ',')
+			i++;
+		for(j=i;j<yyleng;j++){
+			if(yytext[j] != ' '){
+				i = j;
+				break;break;
+			}
+		}
+	}
+	num_base_level = num_level;
+	BEGIN(method);
+}
+
+
+{FUNCTION}+" "+{ALEVEL}+{FVNAME}+"("+{VARS}+")"     {
+	int actpos = 4, j, fnleng, varlen, endofvars = 0, varsn = 0;
+	for(j = actpos; j < yyleng; j++){
+		if(yytext[j] == '('){
+			fnleng = j - actpos;
 			break; break;
 		}
 	}
-	i = 0;
-	for(j = espacio+1; j < yyleng; ++j){
-		nom[i] = yytext[j]; 
-		++i;
+	char *funcname = malloc(fnleng);
+	for(j=0;j<fnleng;j++){
+		funcname[j] = yytext[actpos + j];
 	}
-	printf("Encontré una función: %s\n", yytext);
-	free(nom);
+	printf(" * Function: %s (of length %d / %d)\n", funcname, fnleng, strlen(funcname));
+	free(funcname);
+	actpos += fnleng + 1;
+	while(endofvars == 0) {
+		if(yytext[actpos] == ')'){
+			endofvars = 1;
+			printf(" * * [ No. of vars parsed: %d ]\n", varsn);
+			break;break;
+		}
+		for(j=actpos; j<yyleng; j++){
+			if(yytext[j] == ',' || yytext[j] == ')'){
+				varlen = j - actpos;
+				varsn++;
+				break;break;
+			}
+		}
+		char *varname = malloc(varlen);
+		for(j=0; j<varlen; j++){
+			varname[j] = yytext[actpos + j];
+		}
+		printf(" * * Receives var: %s (of length %d / %d)\n", varname, varlen, strlen(varname));
+		free(varname);
+		actpos+= (varlen);
+		if(yytext[actpos] == ',')
+			actpos++;
+		for(j=actpos;j<yyleng;j++){
+			if(yytext[j] != ' '){
+				actpos = j;
+				break;break;
+			}
+		}
+	}
+	num_base_level = num_level;
+	BEGIN(method);
 }
 
-.	{}
+.	{
+	num_chars_current_line++;
+}
 
 %% 
 main() 
 { 
   yylex(); 
-  printf( "Parsed %d lines\nEnd of execution\n", num_lines); 
+  printf( "---\nParsed %d lines\nEnd of execution\n", num_lines); 
 }
