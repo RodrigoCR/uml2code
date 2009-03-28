@@ -5,16 +5,18 @@ int num_base_level = 0;
 int num_chars_current_line = 0;
 %} 
 
-ALEVEL [:blank:]*(""|"__")
+ALEVEL ""|"__"
 CLASS "class"
 FUNCTION "def"
 CNAME [A-Z][a-zA-Z0-9_]*
 FVNAME [a-z][a-zA-Z0-9_]*
-EXTENDS ""|"("+[A-Z][a-zA-Z0-9_]*+")"
+EXTENDS ""|[A-Z][a-zA-Z0-9_]*
 SLCOMMENT "#"
 MLCOMMENT "'''"
 VARS ""|([a-z][a-zA-Z0-9_]*[' ']*[',']?[' ']*)*([a-z][a-zA-Z0-9_]*[' ']*)?
+CVARS [a-z][a-zA-Z0-9_]*
 CONSTRUCTOR "__init__"
+SPACES (\t|" ")*
 
 %x mlcomment
 %x slcomment
@@ -48,7 +50,6 @@ CONSTRUCTOR "__init__"
 }
 "'''"     {
 	BEGIN(INITIAL);
-	printf("End of multiline comment at line %d\n", num_lines + 1);
 }
 .     {}
 }
@@ -56,7 +57,6 @@ CONSTRUCTOR "__init__"
 \n     {
 	num_lines++;
 	BEGIN(INITIAL);
-	printf("End of single line comment at line %d\n", num_lines);
 }
 .     {}
 }
@@ -81,24 +81,62 @@ CONSTRUCTOR "__init__"
 
 .		{
 	if(num_level <= num_base_level) {
+		yyless(0);
 		BEGIN(INITIAL);
-		printf("End of method at line %d\n", num_lines);
 	}
 }
 }
 
+{CVARS}+{SPACES}+"="     {
+	int j, varleng;
+	char *varname = NULL;
+	if(num_level > 0){
+		for(j = yyleng - 2; j >= 0; j--){
+			if(yytext[j] != ' '){
+				varleng = j + 1;
+				break;break;
+			}
+		}
+		varname = malloc(varleng);
+		for(j=0;j<varleng;j++){
+			varname[j] = yytext[j];
+		}
+		printf(" * Found Var: %s (of length %d / %d)\n", varname, varleng, strlen(varname));
+	}
+	free(varname);
+}
 
-{CLASS}+" "+{ALEVEL}+{CNAME}+{EXTENDS}     {
+
+{CLASS}+" "+{SPACES}+{ALEVEL}+{CNAME}+{SPACES}+("("+{SPACES}+{EXTENDS}+{SPACES}+")")?     {
 	int alevel = 0, exts=0, lclassn, lextcn;
-	int cnstart, ecnstart, j;
-	if(yytext[6] == '_'){
-		cnstart = 8;
+	int cnstart, ecnstart, j, spaces = 0, nyyleng;
+	char *nyytext = NULL;
+	char *nom = NULL;
+	char *extends = NULL;
+	
+	for(j = 6; j < yyleng; j++){
+		if(yytext[j] == ' ')
+			spaces++;
+	}
+	nyyleng = yyleng - spaces - 6;
+	nyytext = malloc(nyyleng);
+	
+	for(j=6; j < yyleng; j++){
+		int a = 0;
+		if(yytext[j] != ' '){
+			nyytext[a] = yytext[j];
+			a++;
+		}
+	}
+	printf("nyytext is: %s and nyyleng is: %d / %d\n", nyytext, nyyleng, strlen(nyytext));
+	if(nyytext[0] == '_' && nyytext[1] == '_'){
+		cnstart = 2;
 		alevel = 1;
 	} else {
-		cnstart = 6;
+		cnstart = 0;
 	}
-	for(j = cnstart; j < yyleng; j++){
-		if(yytext[j] == '('){
+	for(j = cnstart; j < nyyleng; j++){
+		if(nyytext[j] == '('){
 			ecnstart = j + 1;
 			exts = 1;
 			break; break;
@@ -106,19 +144,19 @@ CONSTRUCTOR "__init__"
 	}
 	if(exts == 0) {
 		lextcn = 1;
-		ecnstart = yyleng + 1;
+		ecnstart = nyyleng + 1;
 	}
 	else
-		lextcn = yyleng - ecnstart - 1;
+		lextcn = nyyleng - ecnstart - 1;
 	lclassn = ecnstart - 1 - cnstart;
 	
-	char *nom = malloc(lclassn);
-	char *extends = malloc(lextcn);
+	nom = malloc(lclassn);
+	extends = malloc(lextcn);
 	for(j = 0; j < lclassn; j++){
-		nom[j] = yytext[j + cnstart];
+		nom[j] = nyytext[j + cnstart];
 	}
 	for(j = 0; j < lextcn; j++){
-		extends[j] = yytext[j + ecnstart];
+		extends[j] = nyytext[j + ecnstart];
 	}
 	printf("Found class: %s\n", nom);
 	if(exts==0) { 
@@ -130,61 +168,30 @@ CONSTRUCTOR "__init__"
 		printf("This class is: private\n");
 	else
 		printf("This class is: public\n");
+		
+	free(nyytext);
 	free(nom);
 	free(extends);
 }
 
-{FUNCTION}+" "+{CONSTRUCTOR}+"("+{VARS}+")"     {
-	printf(" * Constructor: %s\n", yytext);
-	int i=13, varlen, j, endofvars = 0, varsn = 0;
-	while(endofvars == 0) {
-		if(yytext[i] == ')'){
-			endofvars = 1;
-			printf(" * * [ No. of vars parsed: %d ]\n", varsn);
-			break;break;
-		}
-		for(j=i; j<yyleng; j++){
-			if(yytext[j] == ',' || yytext[j] == ')'){
-				varlen = j - i;
-				varsn++;
-				break;break;
-			}
-		}
-		char *varname = malloc(varlen);
-		for(j=0; j<varlen; j++){
-			varname[j] = yytext[i + j];
-		}
-		printf(" * * Receives var: %s (of length %d / %d)\n", varname, varlen, strlen(varname));
-		free(varname);
-		i+= (varlen);
-		if(yytext[i] == ',')
-			i++;
-		for(j=i;j<yyleng;j++){
-			if(yytext[j] != ' '){
-				i = j;
-				break;break;
-			}
-		}
-	}
-	num_base_level = num_level;
-	BEGIN(method);
-}
-
-
-{FUNCTION}+" "+{ALEVEL}+{FVNAME}+"("+{VARS}+")"     {
+{FUNCTION}+" "+{SPACES}+{ALEVEL}+{FVNAME}+{SPACES}+"("+{VARS}+")"     {
 	int actpos = 4, j, fnleng, varlen, endofvars = 0, varsn = 0;
+	char *funcname = NULL;
+	char *varsna = NULL;
 	for(j = actpos; j < yyleng; j++){
 		if(yytext[j] == '('){
 			fnleng = j - actpos;
 			break; break;
 		}
 	}
-	char *funcname = malloc(fnleng);
+	funcname = malloc(fnleng);
 	for(j=0;j<fnleng;j++){
 		funcname[j] = yytext[actpos + j];
 	}
-	printf(" * Function: %s (of length %d / %d)\n", funcname, fnleng, strlen(funcname));
-	free(funcname);
+	if(strcmp(funcname,"__init__")==0)
+		printf(" * Constructor: %s (of length %d / %d)\n", funcname, fnleng, strlen(funcname));
+	else
+		printf(" * Function: %s (of length %d / %d)\n", funcname, fnleng, strlen(funcname));
 	actpos += fnleng + 1;
 	while(endofvars == 0) {
 		if(yytext[actpos] == ')'){
@@ -199,12 +206,12 @@ CONSTRUCTOR "__init__"
 				break;break;
 			}
 		}
-		char *varname = malloc(varlen);
+		varsna = malloc(varlen);
 		for(j=0; j<varlen; j++){
-			varname[j] = yytext[actpos + j];
+			varsna[j] = yytext[actpos + j];
 		}
-		printf(" * * Receives var: %s (of length %d / %d)\n", varname, varlen, strlen(varname));
-		free(varname);
+		printf(" * * Receives var: %s (of length %d / %d)\n", varsna, varlen, strlen(varsna));
+		free(varsna);
 		actpos+= (varlen);
 		if(yytext[actpos] == ',')
 			actpos++;
@@ -215,6 +222,7 @@ CONSTRUCTOR "__init__"
 			}
 		}
 	}
+	free(funcname);
 	num_base_level = num_level;
 	BEGIN(method);
 }
