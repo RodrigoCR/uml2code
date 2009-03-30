@@ -9,7 +9,7 @@ int num_chars_current_line = 0;
 int opened_class = 0;
 %} 
 
-ALEVEL ""|"__"
+AMOD ""|"__"
 CLASS "class"
 FUNCTION "def"
 CNAME [A-Z][a-zA-Z0-9_]*
@@ -114,13 +114,18 @@ SPACES (\t|" ")*
 }
 
 
-{CLASS}+" "+{SPACES}+{ALEVEL}+{CNAME}+{SPACES}+("("+{SPACES}+{EXTENDS}+{SPACES}+")")?     {
-	if(opened_class == 1)
-		fprintf(f,"</class>\n");
-	else
+{CLASS}+" "+{SPACES}+{AMOD}+{CNAME}+{SPACES}+("("+{SPACES}+{EXTENDS}+{SPACES}+")")?     {
+	if(opened_class > 0){
+		if(num_level >= opened_class)
+			opened_class++;
+		else {
+			fprintf(f,"</class>\n");
+			opened_class--;
+		}
+	} else
 		fprintf(f,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
 	
-	int alevel = 0, exts=0, lclassn, lextcn;
+	int amod = 0, exts=0, lclassn, lextcn;
 	int cnstart, ecnstart, j, spaces = 0, nyyleng;
 	int a = 0;
 	char *nyytext = NULL;
@@ -143,7 +148,7 @@ SPACES (\t|" ")*
 	nyytext[nyyleng - 1] = '\0';
 	if(nyytext[0] == '_' && nyytext[1] == '_'){
 		cnstart = 2;
-		alevel = 1;
+		amod = 1;
 	} else {
 		cnstart = 0;
 	}
@@ -178,7 +183,7 @@ SPACES (\t|" ")*
 		fprintf(f,"\t<extends> object </extends>\n");
 	else
 		fprintf(f,"\t<extends> %s </extends>\n", extends);
-	if(alevel == 1)
+	if(amod == 1)
 		fprintf(f,"\t<accmod> private </accmod>\n");
 	else
 		fprintf(f,"\t<accmod> public </accmod>\n");
@@ -190,8 +195,8 @@ SPACES (\t|" ")*
 	opened_class = 1;
 }
 
-{FUNCTION}+" "+{SPACES}+{ALEVEL}+{FVNAME}+{SPACES}+"("+(.*)+")"     {
-	int actpos = 0, j, fnleng, varlen, endofvars = 0, varsn = 0, nyyleng;
+{FUNCTION}+" "+{SPACES}+{AMOD}+{FVNAME}+{SPACES}+"("+(.*)+")"     {
+	int actpos = 0, j, fnleng, varlen, endofvars = 0, varsn = 0, nyyleng, amod = 0;
 	int a = 0, spaces = 0;
 	char *nyytext = NULL;
 	char *funcname = NULL;
@@ -212,6 +217,12 @@ SPACES (\t|" ")*
 	}
 	nyytext[nyyleng - 1] = '\0';
 	
+	if(nyytext[0] == '_' && nyytext[1] == '_'){
+		actpos = 2;
+		amod = 1;
+	} else {
+		actpos = 0;
+	}
 	
 	for(j = actpos; j < nyyleng; j++){
 		if(nyytext[j] == '('){
@@ -227,10 +238,15 @@ SPACES (\t|" ")*
 	
 	fprintf(f,"\t<method>\n");
 	
-	if(strcmp(funcname,"__init__")==0)
+	if(strcmp(funcname,"init__")==0)
 		fprintf(f,"\t\t<constructor> true </constructor>\n");
 	fprintf(f,"\t\t<name> %s </name>\n", funcname);
 	fprintf(f,"\t\t<type> Undefined </type>\n");
+	if(amod == 1)
+		fprintf(f,"\t\t<accmod> private </accmod>\n");
+	else
+		fprintf(f,"\t\t<accmod> public </accmod>\n");
+	
 	actpos += fnleng;
 	fprintf(f,"\t\t<receives>\n");
 	while(endofvars == 0) {
