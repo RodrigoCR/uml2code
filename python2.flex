@@ -1,19 +1,22 @@
-%{ 
+%{
+
+FILE *f;
+
 int num_lines = 0;
 int num_level = 0;
 int num_base_level = 0;
 int num_chars_current_line = 0;
+int opened_class = 0;
 %} 
 
 ALEVEL ""|"__"
 CLASS "class"
 FUNCTION "def"
 CNAME [A-Z][a-zA-Z0-9_]*
-FVNAME [a-z][a-zA-Z0-9_]*
+FVNAME [a-z_][a-zA-Z0-9_]*
 EXTENDS ""|[A-Z][a-zA-Z0-9_]*
 SLCOMMENT "#"
 MLCOMMENT "'''"
-VARS ""|([a-z][a-zA-Z0-9_]*[' ']*[',']?[' ']*)*([a-z][a-zA-Z0-9_]*[' ']*)?
 CVARS [a-z][a-zA-Z0-9_]*
 CONSTRUCTOR "__init__"
 SPACES (\t|" ")*
@@ -37,7 +40,7 @@ SPACES (\t|" ")*
 		num_level++;
 }
 
-"'''"  { 
+"'''"  {
 	BEGIN(mlcomment); 
 }
 "#"     {
@@ -93,7 +96,7 @@ SPACES (\t|" ")*
 	if(num_level > 0){
 		for(j = yyleng - 2; j >= 0; j--){
 			if(yytext[j] != ' '){
-				varleng = j + 1;
+				varleng = j + 2;
 				break;break;
 			}
 		}
@@ -101,15 +104,25 @@ SPACES (\t|" ")*
 		for(j=0;j<varleng;j++){
 			varname[j] = yytext[j];
 		}
-		printf(" * Found Var: %s (of length %d / %d)\n", varname, varleng, strlen(varname));
+		varname[varleng-1] = '\0';
+		fprintf(f,"\t<var>\n");
+		fprintf(f,"\t\t<name> %s </name>\n", varname);
+		fprintf(f,"\t\t<type> VOID </type>\n");
+		fprintf(f,"\t</var>\n");
+		free(varname);
 	}
-	free(varname);
 }
 
 
 {CLASS}+" "+{SPACES}+{ALEVEL}+{CNAME}+{SPACES}+("("+{SPACES}+{EXTENDS}+{SPACES}+")")?     {
+	if(opened_class == 1)
+		fprintf(f,"</class>\n");
+	else
+		fprintf(f,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+	
 	int alevel = 0, exts=0, lclassn, lextcn;
 	int cnstart, ecnstart, j, spaces = 0, nyyleng;
+	int a = 0;
 	char *nyytext = NULL;
 	char *nom = NULL;
 	char *extends = NULL;
@@ -118,17 +131,16 @@ SPACES (\t|" ")*
 		if(yytext[j] == ' ')
 			spaces++;
 	}
-	nyyleng = yyleng - spaces - 6;
+	nyyleng = yyleng - spaces - 6 + 1;
 	nyytext = malloc(nyyleng);
 	
 	for(j=6; j < yyleng; j++){
-		int a = 0;
 		if(yytext[j] != ' '){
 			nyytext[a] = yytext[j];
 			a++;
 		}
 	}
-	printf("nyytext is: %s and nyyleng is: %d / %d\n", nyytext, nyyleng, strlen(nyytext));
+	nyytext[nyyleng - 1] = '\0';
 	if(nyytext[0] == '_' && nyytext[1] == '_'){
 		cnstart = 2;
 		alevel = 1;
@@ -148,81 +160,109 @@ SPACES (\t|" ")*
 	}
 	else
 		lextcn = nyyleng - ecnstart - 1;
-	lclassn = ecnstart - 1 - cnstart;
+	lclassn = ecnstart - cnstart;
 	
 	nom = malloc(lclassn);
 	extends = malloc(lextcn);
 	for(j = 0; j < lclassn; j++){
 		nom[j] = nyytext[j + cnstart];
 	}
+	nom[lclassn - 1] = '\0';
 	for(j = 0; j < lextcn; j++){
 		extends[j] = nyytext[j + ecnstart];
 	}
-	printf("Found class: %s\n", nom);
-	if(exts==0) { 
-		printf("This class extends from: object\n");
-	} else {
-		printf("This class extends from: %s\n", extends);
-	}
-	if(alevel == 1)
-		printf("This class is: private\n");
+	extends[lextcn - 1] = '\0';
+	
+	fprintf(f,"<class>\n\t<name> %s </name>\n", nom);
+	if(exts==0 || lextcn == 1)
+		fprintf(f,"\t<extends> object </extends>\n");
 	else
-		printf("This class is: public\n");
+		fprintf(f,"\t<extends> %s </extends>\n", extends);
+	if(alevel == 1)
+		fprintf(f,"\t<accmod> private </accmod>\n");
+	else
+		fprintf(f,"\t<accmod> public </accmod>\n");
 		
 	free(nyytext);
 	free(nom);
 	free(extends);
+	
+	opened_class = 1;
 }
 
-{FUNCTION}+" "+{SPACES}+{ALEVEL}+{FVNAME}+{SPACES}+"("+{VARS}+")"     {
-	int actpos = 4, j, fnleng, varlen, endofvars = 0, varsn = 0;
+{FUNCTION}+" "+{SPACES}+{ALEVEL}+{FVNAME}+{SPACES}+"("+(.*)+")"     {
+	int actpos = 0, j, fnleng, varlen, endofvars = 0, varsn = 0, nyyleng;
+	int a = 0, spaces = 0;
+	char *nyytext = NULL;
 	char *funcname = NULL;
 	char *varsna = NULL;
-	for(j = actpos; j < yyleng; j++){
-		if(yytext[j] == '('){
-			fnleng = j - actpos;
+	
+	for(j = 4; j < yyleng; j++){
+		if(yytext[j] == ' ')
+			spaces++;
+	}
+	nyyleng = yyleng - spaces - 4 + 1;
+	nyytext = malloc(nyyleng);
+	
+	for(j=4; j < yyleng; j++){
+		if(yytext[j] != ' '){
+			nyytext[a] = yytext[j];
+			a++;
+		}
+	}
+	nyytext[nyyleng - 1] = '\0';
+	
+	
+	for(j = actpos; j < nyyleng; j++){
+		if(nyytext[j] == '('){
+			fnleng = j - actpos + 1;
 			break; break;
 		}
 	}
 	funcname = malloc(fnleng);
 	for(j=0;j<fnleng;j++){
-		funcname[j] = yytext[actpos + j];
+		funcname[j] = nyytext[actpos + j];
 	}
+	funcname[fnleng - 1] = '\0';
+	
+	fprintf(f,"\t<method>\n");
+	
 	if(strcmp(funcname,"__init__")==0)
-		printf(" * Constructor: %s (of length %d / %d)\n", funcname, fnleng, strlen(funcname));
-	else
-		printf(" * Function: %s (of length %d / %d)\n", funcname, fnleng, strlen(funcname));
-	actpos += fnleng + 1;
+		fprintf(f,"\t\t<constructor> true </constructor>\n");
+	fprintf(f,"\t\t<name> %s </name>\n", funcname);
+	fprintf(f,"\t\t<type> Undefined </type>\n");
+	actpos += fnleng;
+	fprintf(f,"\t\t<receives>\n");
 	while(endofvars == 0) {
-		if(yytext[actpos] == ')'){
+		if(nyytext[actpos] == ')'){
 			endofvars = 1;
-			printf(" * * [ No. of vars parsed: %d ]\n", varsn);
+			fprintf(f,"\t\t</receives>\n");
 			break;break;
 		}
-		for(j=actpos; j<yyleng; j++){
-			if(yytext[j] == ',' || yytext[j] == ')'){
-				varlen = j - actpos;
+		for(j=actpos; j<nyyleng; j++){
+			if(nyytext[j] == ',' || nyytext[j] == ')'){
+				varlen = j - actpos + 1;
 				varsn++;
 				break;break;
 			}
 		}
 		varsna = malloc(varlen);
 		for(j=0; j<varlen; j++){
-			varsna[j] = yytext[actpos + j];
+			varsna[j] = nyytext[actpos + j];
 		}
-		printf(" * * Receives var: %s (of length %d / %d)\n", varsna, varlen, strlen(varsna));
+		varsna[varlen - 1] = '\0';
+		fprintf(f,"\t\t\t<var>\n");
+		fprintf(f,"\t\t\t\t<name> %s </name>\n", varsna);
+		fprintf(f,"\t\t\t\t<type> VOID </type>\n");
+		fprintf(f,"\t\t\t</var>\n");
 		free(varsna);
-		actpos+= (varlen);
-		if(yytext[actpos] == ',')
+		actpos += varlen - 1;
+		if(nyytext[actpos] == ',')
 			actpos++;
-		for(j=actpos;j<yyleng;j++){
-			if(yytext[j] != ' '){
-				actpos = j;
-				break;break;
-			}
-		}
 	}
 	free(funcname);
+
+	fprintf(f,"\t</method>\n");
 	num_base_level = num_level;
 	BEGIN(method);
 }
@@ -231,9 +271,14 @@ SPACES (\t|" ")*
 	num_chars_current_line++;
 }
 
-%% 
-main() 
-{ 
-  yylex(); 
-  printf( "---\nParsed %d lines\nEnd of execution\n", num_lines); 
+%%
+
+main(){ 
+	f = fopen("prueba.py.xml","w");
+	yylex();
+	if(opened_class == 1){
+		fprintf(f,"</class>\n");
+	}
+  	fclose(f);
+  	printf( "---\nParsed %d lines\nEnd of execution\n", num_lines); 
 }
