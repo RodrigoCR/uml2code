@@ -10,12 +10,12 @@ int opened_class = 0;
 int started = 0;
 %} 
 
-AMOD ""|"__"
+AMOD ["__"]?
 CLASS "class"
 FUNCTION "def"
 CNAME [A-Z][a-zA-Z0-9_]*
 FVNAME [a-z_][a-zA-Z0-9_]*
-EXTENDS ""|[A-Z][a-zA-Z0-9_]*
+EXTENDS ([A-Z][a-zA-Z0-9_]*)?
 SLCOMMENT "#"
 MLCOMMENT "'''"
 CVARS [a-z][a-zA-Z0-9_]*
@@ -41,10 +41,10 @@ SPACES (\t|" ")*
 		num_level++;
 }
 
-"'''"  {
+{MLCOMMENT} {
 	BEGIN(mlcomment); 
 }
-"#"     {
+{SLCOMMENT}     {
 	BEGIN(slcomment);
 }
 
@@ -52,7 +52,7 @@ SPACES (\t|" ")*
 \n     {
 	num_lines++;
 }
-"'''"     {
+{MLCOMMENT}     {
 	BEGIN(INITIAL);
 }
 .     {}
