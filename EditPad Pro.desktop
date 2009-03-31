@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=EditPad Pro
+Exec=env WINEPREFIX="/home/carlos/.wine" wine "C:\\Archivos de programa\\JGsoft\\EditPadPro6\\EditPadPro.exe" 
+Type=Application
+StartupWMClass=Wine
+Comment=Finish your work earlier with this powerful text editor.  Buy EditPad Pro now!
+Path=/home/carlos/.wine/dosdevices/c:/Archivos de programa/JGsoft/EditPadPro6
+Icon=/home/carlos/.local/share/icons/3662_editpadpro.0.xpm

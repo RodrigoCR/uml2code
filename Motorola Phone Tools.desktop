@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Motorola Phone Tools
+Exec=env WINEPREFIX="/home/carlos/.wine" wine "C:\\Archivos de programa\\Motorola Phone Tools\\mphonetools.exe" 
+Type=Application
+StartupWMClass=Wine
+Path=/home/carlos/.wine/dosdevices/c:/Archivos de programa/Motorola Phone Tools
+Icon=/home/carlos/.local/share/icons/758a_mphonetools.0.xpm

@@ -1,0 +1,121 @@
+#LyX 1.5.6 created this file. For more info see http://www.lyx.org/
+\lyxformat 276
+\begin_document
+\begin_header
+\textclass article
+\language english
+\inputencoding auto
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+\graphics default
+\paperfontsize default
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\author "" 
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+Hola Carlos espero me puedas ayudar a resolver estas dudas:
+\newline
+
+\newline
+Para el problema
+ 12 de la tarea 3:
+\newline
+
+\newline
+
+\newline
+X es v.a Geométrica; E(x) = 12.5 = 25/2; se busca P(X=6);
+ la esperanza se expresa como 12.5=E(x)= 1-p/p dado que 1-p es el 
+\begin_inset Quotes eld
+\end_inset
+
+fallo
+\begin_inset Quotes erd
+\end_inset
+
+ es decir que la persona no tenga la enfermedad, esto implica que p=25/27
+\newline
+
+\newline
+Como
+ 
+\begin_inset Formula $P(X=x)=(1-p)^{x}p$
+\end_inset
+
+ para X=6 tenemos 
+\begin_inset Formula $P(X=6)=(2/27)^{6}(25/27)$
+\end_inset
+
+ es esto correcto????
+\newline
+
+\newline
+
+\newline
+Para la 13:
+\newline
+X es una v.a, poisson Y tambien lo es solo
+ que en X los valores comprenden 0,1,2,...
+ y en Y comprenden 1,2,...
+\newline
+Se busca 
+\begin_inset Formula $E(Y)=\lambda$
+\end_inset
+
+ pero es la 
+\begin_inset Formula $\lambda$
+\end_inset
+
+ de Y, asi que tomando que 
+\begin_inset Formula $P(Y=i)=P(X=i|X>0)$
+\end_inset
+
+ entonces se tiene que 
+\begin_inset Formula $P(X=i)=\frac{P(X=i\cap X>0)}{P(X=0)}$
+\end_inset
+
+ pero no concluyo nada de ahi
+\newline
+
+\newline
+Para la 14 tengo esto:
+\newline
+
+\begin_inset Formula $E(x)=\sum_{x=1}^{\infty}xf(x)=\sum_{x=1}^{\infty}1/x(1-p)^{x}p=p\sum_{x=1}^{\infty}(1-p)^{x}/x=p\sum_{x=1}^{\infty}\intop_{0}^{1-p}x^{i-1}=p\sum_{x=1}^{\infty}\frac{x^{i}}{i}|_{0}^{1-p}=\frac{p}{1-p}\sum_{x=1}^{\infty}x^{1-p}$
+\end_inset
+
+pero de aqui no veo como sacar el resultado
+\newline
+
+\newline
+Y en la 15 de plano que ando
+ perdido
+\end_layout
+
+\end_body
+\end_document

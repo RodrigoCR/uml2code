@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=MIKSOFT Mobile AMR converter
+Exec=env WINEPREFIX="/home/carlos/.wine" wine "C:\\Archivos de programa\\MIKSOFT\\Mobile AMR converter\\Amr Con.exe" 
+Type=Application
+StartupNotify=true
+Icon=/home/carlos/.local/share/icons/be4c_amr con.0.xpm

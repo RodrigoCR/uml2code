@@ -1,0 +1,11 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=NetBeans IDE 6.1
+Exec=/bin/sh "/home/carlos/Netbeans6.1/bin/netbeans"
+Icon=/home/carlos/Netbeans6.1/nb6.1/netbeans.png
+Categories=Development;Java;IDE
+Version=1.0
+StartupNotify=true
+Type=Application
+Terminal=0
+
