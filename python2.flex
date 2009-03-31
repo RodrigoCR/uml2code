@@ -7,6 +7,7 @@ int num_level = 0;
 int num_base_level = 0;
 int num_chars_current_line = 0;
 int opened_class = 0;
+int started = 0;
 %} 
 
 AMOD ""|"__"
@@ -115,15 +116,23 @@ SPACES (\t|" ")*
 
 
 {CLASS}+" "+{SPACES}+{AMOD}+{CNAME}+{SPACES}+("("+{SPACES}+{EXTENDS}+{SPACES}+")")?     {
+	int m;
 	if(opened_class > 0){
-		if(num_level >= opened_class)
+		if(num_level >= opened_class){
 			opened_class++;
-		else {
-			fprintf(f,"</class>\n");
-			opened_class--;
+		} else {
+			for(m=0; m < opened_class - num_level; m++){
+				fprintf(f,"</class>\n");
+			}
+			opened_class = num_level + 1;
 		}
-	} else
-		fprintf(f,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+	} else {
+		if(started == 0){
+			fprintf(f,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+			started = 1;
+		}
+		opened_class++;
+	}
 	
 	int amod = 0, exts=0, lclassn, lextcn;
 	int cnstart, ecnstart, j, spaces = 0, nyyleng;
@@ -191,8 +200,6 @@ SPACES (\t|" ")*
 	free(nyytext);
 	free(nom);
 	free(extends);
-	
-	opened_class = 1;
 }
 
 {FUNCTION}+" "+{SPACES}+{AMOD}+{FVNAME}+{SPACES}+"("+(.*)+")"     {
@@ -289,11 +296,14 @@ SPACES (\t|" ")*
 
 %%
 
-main(){ 
+main(){
+	int m;
 	f = fopen("prueba.py.xml","w");
 	yylex();
-	if(opened_class == 1){
-		fprintf(f,"</class>\n");
+	if(opened_class > 0){
+		for(m=0; m < opened_class; m++){
+			fprintf(f,"</class>\n");
+		}
 	}
   	fclose(f);
   	printf( "---\nParsed %d lines\nEnd of execution\n", num_lines); 
