@@ -101,30 +101,13 @@ char *elementAt(int index, struct LinkedList *list){
 }
 
 // Erase jumplines on a string
-char *ejlines(char original[]){
-	int j, k = 0, saltos = 0, nleng;
-	char *new = NULL;
+void ejlines(char original[]){
+	int j;
 	for(j = 0; j < strlen(original); j++){
-		if(original[j] == '\\'){
-			if(original[j+1] == 'n'){
-				saltos++;
-				j++;
-			}
+		if(original[j] == '\n'){
+			original[j] = ' ';
 		}
 	}
-	nleng = strlen(original) - (saltos*2) + 1;
-	new = malloc(sizeof(char)*nleng);
-	for(j = 0; j < strlen(original); j++){
-		if(original[j] == '\\'){
-			if(original[j+1] == 'n'){
-				j++;
-			}
-		} else {
-			new[k] = original[j];
-			k++;
-		}
-	}
-	return new;
 }
 
 int main() {
@@ -140,7 +123,7 @@ int main() {
 	
 	// File name length of 500
 	char name_of_file[500];
-	printf("*\nNow you can write the name a the file to open:\n");
+	printf("\nNow you can write the name a the file to open:\n");
 	scanf("%s", name_of_file);
 	FILE *f;
 	f = fopen(name_of_file, "r");
@@ -153,8 +136,7 @@ int main() {
 	struct LinkedList *start = NULL;
 	while(!feof(f)){
 		if(fgets(buffer,150,f)){
-			char *nbuf = NULL;
-			nbuf = ejlines(buffer);
+			ejlines(buffer);
 			printf("Inserting: %s\n", buffer);
 			start = insert(start, buffer);
 		}
