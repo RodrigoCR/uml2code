@@ -2,14 +2,13 @@
 #include <stdlib.h>
 
 struct node {
-	int id;
 	char *line;
 	struct node *link;
 };
 
 struct node *insert(struct node *p, char *text) {
 	struct node *temp;
-	int j = 1;
+	char *tempstr;
 	if(p == NULL){
 		p = (struct node *)malloc(sizeof(struct node));
 		// Just in case of error
@@ -17,14 +16,13 @@ struct node *insert(struct node *p, char *text) {
 			printf("== Error assingning memory ==\n");
 			exit(0);
 		}
-		p -> id = j;
-		p -> line = text;
+		tempstr = text;
+		p -> line = tempstr;
 		p -> link = NULL;
 	} else {
 		temp = p;
 		while (temp -> link != NULL) {
 			temp = temp -> link;
-			j++;
 		}
 		temp -> link = (struct node *)malloc(sizeof(struct node));
 		// Just in case of error
@@ -33,9 +31,8 @@ struct node *insert(struct node *p, char *text) {
 			exit(0);
 		}
 		temp = temp -> link;
-		j++;
-		temp -> id = j;
-		temp -> line = text;
+		tempstr = text;
+		temp -> line = tempstr;
 		temp -> link = NULL;
 	}
 	return(p);
@@ -44,13 +41,15 @@ struct node *insert(struct node *p, char *text) {
 void printlist(struct node *p){
 	struct node *temp;
 	temp = p;
+	int j = 1;
 	if(p!= NULL){
 		printf("The text lines in the list are:\n");
 		do{
-			printf("%d.- %s", temp -> id, temp -> line);
+			printf("%d.- %s", j, temp -> line);
 			if(temp -> link != NULL)
 				printf("\n");
 			temp = temp -> link;
+			j++;
 		} while (temp != NULL);
 		printf("\n");
 	} else {
@@ -76,14 +75,15 @@ int main() {
 	if(f == NULL) {
 		printf("Can't open the file ('%s')\nExiting now...\n", name_of_file);
 		return 0;
-	} else {
-		printf("Opening file '%s' [ OK ]\n", name_of_file);
 	}
-	char buffer[1000];
+	printf("Opening file '%s' [ OK ]\n", name_of_file);
+	char *buffer;
 	struct node *start = NULL;
-	while(fscanf(f,"%s\n", buffer) != EOF) {
-		start = insert(start, buffer);
-		printf("Inserted: %s\n", buffer);
+	while(!feof(f)){
+		if(fgets(buffer,150,f)){
+			start = insert(start, buffer);
+			printf("Inserted: %s\n", buffer);
+		}
 	}
 	printf("End of file\n");
 	fclose(f);
