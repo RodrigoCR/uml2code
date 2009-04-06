@@ -82,6 +82,51 @@ void printlist(struct LinkedList *list){
 	}
 }
 
+struct LinkedList *insertAt(int index, char *text, struct LinkedList *list){
+	if(list == NULL) {
+		printf("Initializing list on method insertAt\n");
+		list = (struct LinkedList *)malloc(sizeof(struct LinkedList));
+		list -> first = NULL;
+		list -> length = 0;
+	}
+	struct node *temp;
+	struct node *temp2;
+	char *ttext = NULL;
+	
+	int i = 0;
+	if(index < (list -> length) && index >= 0) {
+	
+		ttext = (char *)malloc(sizeof(char)*strlen(text)+ 1);
+		strcpy(ttext,text);
+		
+		printf("Searching index %d...\n", index);
+		
+		temp = list -> first;
+		temp2 = (struct node *)malloc(sizeof(struct node));
+		temp2 -> line = ttext;
+		
+		if(index == 0){
+			temp2 -> next = temp;
+			list -> first = temp2;
+		} else {
+			while(i < index - 1){
+				temp = temp -> next;
+				i++;
+			}
+			// Just in case of error
+			if(temp2 == NULL) {
+				printf("== Error assingning memory ==\n");
+				exit(0);
+			}
+			temp2 -> next = temp -> next;
+			temp -> next = temp2;
+			(list -> length)++;
+		}
+	} else
+		printf("Tried to insert outside the list, no changes made\n");
+	return list;
+}
+
 char *elementAt(int index, struct LinkedList *list){
 	if(list == NULL) {
 		printf("Initializing list on method elementAt\n");
@@ -142,13 +187,16 @@ int main() {
 	while(!feof(f)){
 		if(fgets(buffer,150,f)){
 			ejlines(buffer);
-			//printf(": %s\n", buffer);
 			start = insert(start, buffer);
 		}
 	}
 	printf("End of file\n");
 	fclose(f);
-
+	
+	start = insertAt(193,"Rodrigo es el mejor", start);
+	start = insertAt(0, "Me falto esto al iniciar", start);
+	start = insertAt(1, "Y esto después de lo que me faltó", start);
+	
 	printlist(start);
 	
 	
