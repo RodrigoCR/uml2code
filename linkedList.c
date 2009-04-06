@@ -14,7 +14,7 @@ struct LinkedList {
 	int length;
 };
 
-// Inserts a string at the start of the list
+// Inserts a string at the end of the list
 struct LinkedList *insert(struct LinkedList *list, char *text) {
 	if(list == NULL) {
 		printf("Initializing list on method insert\n");
@@ -22,7 +22,12 @@ struct LinkedList *insert(struct LinkedList *list, char *text) {
 		list -> first = NULL;
 		list -> length = 0;
 	}
+	
 	struct node *temp;
+	char *ttext = NULL;
+	ttext = (char *)malloc(sizeof(char)*strlen(text)+ 1);
+	strcpy(ttext,text);
+	
 	if(list -> first == NULL){
 		(list -> first) = (struct node *)malloc(sizeof(struct node));
 		// Just in case of error
@@ -30,7 +35,7 @@ struct LinkedList *insert(struct LinkedList *list, char *text) {
 			printf("== Error assingning memory ==\n");
 			exit(0);
 		}
-		(list -> first) -> line = text;
+		(list -> first) -> line = ttext;
 		(list -> first) -> next = NULL;
 		(list -> length)++;
 	} else {
@@ -45,7 +50,7 @@ struct LinkedList *insert(struct LinkedList *list, char *text) {
 			exit(0);
 		}
 		temp = temp -> next;
-		temp -> line = text;
+		temp -> line = ttext;
 		temp -> next = NULL;
 		(list -> length)++;
 	}
@@ -137,14 +142,14 @@ int main() {
 	while(!feof(f)){
 		if(fgets(buffer,150,f)){
 			ejlines(buffer);
-			printf("Inserting: %s\n", buffer);
+			//printf(": %s\n", buffer);
 			start = insert(start, buffer);
 		}
 	}
 	printf("End of file\n");
 	fclose(f);
 
-	//printlist(start);
+	printlist(start);
 	
 	
 	return 0;

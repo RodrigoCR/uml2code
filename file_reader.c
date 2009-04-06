@@ -87,7 +87,7 @@ int main() {
 	}
 	printf("End of file\n");
 	fclose(f);
-
+	
 	printlist(start);
 	
 	return 0;
