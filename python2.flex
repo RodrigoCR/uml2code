@@ -101,7 +101,7 @@ SPACES (\t|" ")*
 				break;break;
 			}
 		}
-		varname = malloc(varleng);
+		varname = malloc(sizeof(char)*varleng);
 		for(j=0;j<varleng;j++){
 			varname[j] = yytext[j];
 		}
@@ -146,7 +146,7 @@ SPACES (\t|" ")*
 			spaces++;
 	}
 	nyyleng = yyleng - spaces - 6 + 1;
-	nyytext = malloc(nyyleng);
+	nyytext = malloc(sizeof(char)*nyyleng);
 	
 	for(j=6; j < yyleng; j++){
 		if(yytext[j] != ' '){
@@ -176,8 +176,8 @@ SPACES (\t|" ")*
 		lextcn = nyyleng - ecnstart - 1;
 	lclassn = ecnstart - cnstart;
 	
-	nom = malloc(lclassn);
-	extends = malloc(lextcn);
+	nom = malloc(sizeof(char)*lclassn);
+	extends = malloc(sizeof(char)*lextcn);
 	for(j = 0; j < lclassn; j++){
 		nom[j] = nyytext[j + cnstart];
 	}
@@ -214,7 +214,7 @@ SPACES (\t|" ")*
 			spaces++;
 	}
 	nyyleng = yyleng - spaces - 4 + 1;
-	nyytext = malloc(nyyleng);
+	nyytext = malloc(sizeof(char)*nyyleng);
 	
 	for(j=4; j < yyleng; j++){
 		if(yytext[j] != ' '){
@@ -237,7 +237,7 @@ SPACES (\t|" ")*
 			break; break;
 		}
 	}
-	funcname = malloc(fnleng);
+	funcname = malloc(sizeof(char)*fnleng);
 	for(j=0;j<fnleng;j++){
 		funcname[j] = nyytext[actpos + j];
 	}
@@ -269,7 +269,7 @@ SPACES (\t|" ")*
 				break;break;
 			}
 		}
-		varsna = malloc(varlen);
+		varsna = malloc(sizeof(char)*varlen);
 		for(j=0; j<varlen; j++){
 			varsna[j] = nyytext[actpos + j];
 		}
@@ -307,8 +307,4 @@ main(){
 	}
   	fclose(f);
   	printf( "---\nParsed %d lines\nEnd of execution\n", num_lines); 
-}
-
-int yywrap() {
-	return 1;
 }
