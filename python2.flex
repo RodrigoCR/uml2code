@@ -308,3 +308,7 @@ main(){
   	fclose(f);
   	printf( "---\nParsed %d lines\nEnd of execution\n", num_lines); 
 }
+
+int yywrap() {
+	return 1;
+}
