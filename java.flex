@@ -88,6 +88,12 @@ int desapila(struct ListaLigada *lista) {
 
 	/* Modificador de acceso y tipo del atributo actual */
 	char *atrib_mod, *atrib_type;
+
+	/* Apoyo para comer los comentarios dentro de la lectura de variables */
+	int start_vc = 0, start_var_cons = 0, start_var_sc = 0;
+
+	/* Apoyo para comerse los constructores dentro de los argumentos de un metodo */
+	int arg_cons = 0;
 %}
 
 %{
@@ -103,7 +109,7 @@ int desapila(struct ListaLigada *lista) {
  */
 SPACES (" "|\t)+
 ALEVEL ("public"|"private"|"protected")
-RETURN [a-zA-Z0-9\[\]_]+
+RETURN [.a-zA-Z0-9\[\]_]+
 FINAL "final"
 STATIC "static"
 ABSTRACT "abstract"
@@ -131,7 +137,7 @@ NAMEPACKAGE [a-zA-Z0-9._]+
 NATIVE "native"
 SYNC "synchronized"
 THROWS "throws"
-NAMEMETHOD [a-z][a-zA-Z0-9_]+{SPACES}?"(".*")"
+NAMEMETHOD [a-z][a-zA-Z0-9_]+{SPACES}?"("
 
 /*
  *	EXPRESIONES REGULARES PARA LA DETECCION CONTRUCTORES
@@ -152,6 +158,16 @@ NAMEVAR [a-zA-z0-9_]+
 %x throws
 %x variables
 %x next_var
+%x var_sc
+%x var_c
+%x var_string
+%x var_cons
+%x var_comment
+%x var_simple_comment
+%x arguments
+%x next_argument
+%x arg_constructor
+%x arg_string
 
 %%
 "/*"  { BEGIN(comment); comment_level = 1; }
@@ -438,8 +454,6 @@ NAMEVAR [a-zA-z0-9_]+
 	char *accesmod = malloc(yyleng);
 	char *name = malloc(yyleng);
 	char *type_return = malloc(yyleng);
-	char *var_type = malloc(yyleng);
-	char *var_name = malloc(yyleng);
 	
 	int i = 0, j = 0, num_args = 0;
 
@@ -476,7 +490,6 @@ NAMEVAR [a-zA-z0-9_]+
 			break;
 	}
 
-	
 	// Nombre del metodo
 	while(yytext[j] != '(') { j++; }
 	j--;
@@ -495,30 +508,94 @@ NAMEVAR [a-zA-z0-9_]+
 	printabs(); fprintf(file, "\t<return>%s</return>\n", type_return);
 	printabs(); fprintf(file, "\t<name>%s</name>\n", name);
 
-	// Los argumentos que recibe
-	while(yytext[j] != '(') { j++; }
-	j+=1;
-	while(yytext[j] != ')') {
-		printabs(); fprintf(file, "\t<argument>\n");
-		while(yytext[j] == ' ' || yytext[j] == '\t' || yytext[j] == ',')	{	j++;	}
-		for(i = 0; yytext[j]!=' ' && yytext[j]!='\t' && yytext[j]!='=' && yytext[j]!=',' && yytext[j]!=';'; j++, i++)	{	var_type[i] = yytext[j];	} var_type[i] = '\0';
-		printabs(); fprintf(file, "\t\t<type>%s</type>\n", var_type);
-		
-		while(yytext[j] == ' ' || yytext[j] == '\t')	{	j++;	}
-		for(i = 0; yytext[j] != ' ' && yytext[j] != '\t' && yytext[j] != '=' && yytext[j] != ',' && yytext[j] != ')'; i++, j++) { var_name[i] = yytext[j]; } var_name[i] = '\0';
-		printabs(); fprintf(file, "\t\t<name>%s</name>\n", var_name);
-		
-		while(yytext[j] != ',' && yytext[j] != ')')	{ j += 1; }
-		printabs(); fprintf(file, "\t</argument>\n");
-	}
-
-	// Checamos las posibles excepciones que arroja el metodo ademas de ignorar su contenido
-	BEGIN(throws);
+	// Checamos todos los argumentos que recibe este metodo ademas de las excepciones e ignorar el contenido del metodo
+	BEGIN(arguments);
 }
+
+<arguments>{
+\n	{ num_lines++; }
+{RETURN}{SPACES}{NAMEVAR}	{
+		int i = 0, j = 0;
+
+		char *var_type = malloc(yyleng);
+		char *var_name = malloc(yyleng);
+
+		printabs(); fprintf(file, "\t<argument>\n");
+
+		// Tipo del argumento
+		for(j = 0; yytext[j]!=' ' && yytext[j]!='\t'; j++)	{ var_type[j] = yytext[j]; } var_type[j] = '\0';
+		printabs(); fprintf(file, "\t\t<type>%s</type>\n", var_type);
+
+		// Nombre del argumento
+		while(yytext[j] == ' ' || yytext[j] == '\t') { j++; }
+		for(i = 0; j < yyleng; i++, j++) { var_name[i] = yytext[j]; } var_name[i] = '\0';
+		printabs(); fprintf(file, "\t\t<name>%s</name>\n", var_name);
+
+		printabs(); fprintf(file, "\t</argument>\n");
+
+		// Avanzamos hasta encontrar el siguiente argumento o hasta el fin del metodo
+		BEGIN(next_argument);
+	}
+")"		{
+			BEGIN(throws);
+		}
+.	{}
+}
+
+<next_argument>{
+\n	{ num_lines++; }
+"("	{
+		arg_cons = 1;
+		BEGIN(arg_constructor);
+	}
+"\""	{
+			BEGIN(arg_string);
+		}
+","		{
+			
+			BEGIN(arguments);
+		}
+")"		{
+			BEGIN(throws);
+		}
+.		{}
+}
+
+<arg_constructor>{
+\n	{ num_lines++; }
+"\""	{
+			BEGIN(arg_string);
+		}
+"("		{
+			arg_cons++;
+		}
+")"		{
+			arg_cons--;
+			if(arg_cons == 0)
+				BEGIN(next_argument);
+		}
+.		{}
+}
+
+<arg_string>{
+\n	{ num_lines++; }
+"\"".	{}
+"\""	{
+			if(arg_cons == 0)
+				BEGIN(arguments);
+			else
+				BEGIN(arg_constructor);
+		}
+.		{}
+}
+
 
 	/* Cacha los metodos ademas de su lista de argumentos, NOTA : Tengo que implementar aun soporte para metodos final, abstract, synchronized y native */
 ({ALEVEL}{SPACES})?({STATIC}{SPACES})?(({ABSTRACT}|{FINAL}){SPACES})?({NATIVE}{SPACES})?({SYNC}{SPACES})?{RETURN}{SPACES}{NAMEMETHOD}	{
 	printf("JAJA gral.\n");
+	printabs(); fprintf(file, "<method>\n");
+	// Checamos las posibles excepciones que arroja el metodo ademas de ignorar su contenido
+	BEGIN(throws);
 }
 
 
@@ -530,6 +607,27 @@ NAMEVAR [a-zA-z0-9_]+
 
 
 
+
+<var_simple_comment>{
+\n	{
+		num_lines++;
+		BEGIN(variables);
+	}
+.	{}
+}
+
+<var_comment>{
+\n	{ num_lines++; }
+"/*"	{
+			start_var_sc++;
+		}
+"*/"	{
+			start_var_sc--;
+			if(start_var_sc == 0)
+				BEGIN(variables);
+		}
+.	{}
+}
 
 	/* Cacha el nombre de todas las variables que tienen en comun el tipo y demas caracterirsticas */
 <variables>{
@@ -554,12 +652,68 @@ NAMEVAR [a-zA-z0-9_]+
 						printabs(); fprintf(file, "</var>\n");
 						BEGIN(next_var);
 					}
+"//"	{
+			BEGIN(var_simple_comment);
+		}
+"/*"	{
+			start_var_sc = 1;
+			BEGIN(var_comment);
+		}
 .	{}
+}
+
+<var_sc>{
+\n	{
+		num_lines++;
+		BEGIN(next_var);
+	}
+.	{}
+}
+
+<var_c>{
+\n	{ num_lines++; }
+"/*"	{ start_vc++; }
+"*/"	{
+			start_vc--;
+			if(start_vc == 0)
+				BEGIN(next_var);
+		}
+.	{}
+}
+
+<var_string>{
+\n		{ num_lines++; }
+"\\".	{}
+"\""	{
+			if(start_var_cons == 0)
+				BEGIN(next_var);
+			else
+				BEGIN(var_cons);
+		}
+.		{}
+}
+
+<var_cons>{
+\n		{ num_lines++; }
+"("		{
+			start_var_cons++;
+		}
+")"		{
+			start_var_cons--;
+			if(start_var_cons == 0)
+				BEGIN(next_var);
+		}
+"\""	{
+			BEGIN(var_string);
+		}
+.		{}
 }
 
 <next_var>{
 \n	{num_lines++; }
-","	{ BEGIN(variables); }
+","	{
+		BEGIN(variables);
+	}
 ";"	{
 		is_static = 0;
 		is_final = 0;
@@ -567,6 +721,18 @@ NAMEVAR [a-zA-z0-9_]+
 		is_volatile = 0;
 		BEGIN(INITIAL);
 	}
+"//"	{ BEGIN(var_sc); }
+"/*"	{
+			start_vc = 1;
+			BEGIN(var_c);
+		}
+"\""	{
+			BEGIN(var_string);
+		}
+"("		{
+			start_var_cons = 1;
+			BEGIN(var_cons);
+		}
 .	{}
 }
 
@@ -576,6 +742,9 @@ NAMEVAR [a-zA-z0-9_]+
 
 	atrib_mod = malloc(yyleng);
 	atrib_type = malloc(yyleng);
+	
+	char *statico ="static";
+	char *final = "final";
 
 	while(j < yyleng) {
 		i = 0;
@@ -590,9 +759,38 @@ NAMEVAR [a-zA-z0-9_]+
 			for(i = 0; i < yyleng; i++) { atrib_type[i] = yytext[i]; } atrib_type[i] = '\0';
 			break;
 		case 1:
-			
+			if(yytext[0] == 's') {
+				is_static = 1;
+				atrib_mod = "protected";				
+			} else if(yytext[0] == 'f') {
+				is_final = 1;
+				atrib_mod = "protected";
+			} else {
+				i = 0;
+				while(yytext[i] != ' ' && yytext[i] != '\t') { i++; }
+				switch(i) {
+					case 6 : atrib_mod = "public"; break;
+					case 7 : atrib_mod = "private"; break;
+					case 9 : atrib_mod = "protected"; break;
+				}
+			}
 			break;
 		case 2:
+			if(yytext[0] == 'p') {
+				for(i = 0; yytext[i] != ' ' && yytext[i] != '\t'; i++)
+					atrib_mod[i] = yytext[i];
+				while(yytext[i] == ' ' || yytext[i] == '\t')
+					i++;
+				if(yytext[i] == 's')
+					is_static = 1;
+				else if(yytext[i] == 'f')
+					is_final = 1;
+			} else {
+				is_final = 1;
+				is_static = 1;
+				atrib_mod = "protected";
+			}
+				
 			break;
 		case 3:
 			is_static = 1;
@@ -601,20 +799,16 @@ NAMEVAR [a-zA-z0-9_]+
 			// Modificador de acceso del atributo actual
 			for(i = 0; yytext[i] != ' ' && yytext[i] != '\t'; i++) { atrib_mod[i] = yytext[i]; } atrib_mod[i] = '\0';
 
-			// Tipo del atributo actual
-			i = yyleng-1;
-			while(yytext[i] != ' ' && yytext[i] != '\t') { i--; } j++;
-			for(j = i; j < yyleng; j++) { atrib_type[j - i] = yytext[j]; } atrib_type[j - i] = '\0';
-
 			break;
 	}
 
+	// Tipo del atributo actual
+	i = yyleng-1;
+	while(yytext[i] != ' ' && yytext[i] != '\t') { i--; } i += 1;
+	for(j = i; j < yyleng; j++) { atrib_type[j - i] = yytext[j]; } atrib_type[j - i] = '\0';
+
 	BEGIN(variables);
 }
-
-
-
-
 
 
 
@@ -622,13 +816,9 @@ NAMEVAR [a-zA-z0-9_]+
 
 %%
 main() {
-	file = fopen("Gato.java.xml","w");
+	file = fopen("Menu.java.xml","w");
 	if(file == NULL) { printf("No mames ahora que chingados paso.\n"); }
 	yylex();
 	fclose(file);
 	printf("Fin de la ejecucion, se leyeron %d lineas.\n", num_lines);
-}
-
-int yywrap() {
-		return 1;
 }
