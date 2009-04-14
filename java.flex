@@ -142,8 +142,7 @@ NAMEMETHOD [a-z][a-zA-Z0-9_]+{SPACES}?"("
 /*
  *	EXPRESIONES REGULARES PARA LA DETECCION CONTRUCTORES
  */
-NAMECONTRUCTOR [A-Z][a-zA-Z0-9_]+{SPACES}?"(".*")"
-
+NAMECONTRUCTOR [A-Z][a-zA-Z0-9_]+{SPACES}?"("
 /*
  *	EXPRESION QUE CASA EN NOMBRE DE METODOS
  */
@@ -198,11 +197,11 @@ NAMEVAR [a-zA-z0-9_]+
 "}"    { 
 			not_end_class--;
 			if(not_end_class == 0) {
+				num_tabs--;
 				if(start_interface) {
 					fprintf(file, "</interface>\n");
 					start_interface = 0;
 				} else {
-					num_tabs--;
 					printabs(); fprintf(file, "</class>\n");
 					if(pila != NULL)
 						if(pila->primero != NULL)
@@ -343,7 +342,7 @@ NAMEVAR [a-zA-z0-9_]+
 	for(j = 0; index < yyleng; j++, index++) {	name[j] = yytext[index];	}	name[j] = '\0';
 	printabs(); fprintf(file, "<interface>\n");
 	num_tabs++;
-	printabs(); fprintf(file, "<accesmod>public<accesmod>\n");
+	printabs(); fprintf(file, "<accesmod>public</accesmod>\n");
 	printabs(); fprintf(file, "<name>%s</name>\n", name);
 
 	free(name);
@@ -398,8 +397,6 @@ NAMEVAR [a-zA-z0-9_]+
 
 	char *accesmod = malloc(yyleng);
 	char *name = malloc(yyleng);
-	char *var_type = malloc(yyleng);
-	char *var_name = malloc(yyleng);
 
 	while(yytext[j] != '(') { j++; }
 	j--;
@@ -423,32 +420,14 @@ NAMEVAR [a-zA-z0-9_]+
 	for(i = j; yytext[i] != ' ' && yytext[i] != '\t' && yytext[i] != '('; i++) { name[i - j] = yytext[i]; } name[i - j] = '\0';
 	printabs(); fprintf(file, "\t<name>%s</name>\n", name);
 
-	while(yytext[j] != '(') { j++; }
-	// Checamos las vairables que recive
-	j+=1;
-	while(yytext[j] != ')') {
-		printabs(); fprintf(file, "\t<argument>\n");
-		while(yytext[j] == ' ' || yytext[j] == '\t' || yytext[j] == ',')	{	j++;	}
-		for(i = 0; yytext[j]!=' ' && yytext[j]!='\t' && yytext[j]!='=' && yytext[j]!=',' && yytext[j]!=';'; j++, i++)	{	var_type[i] = yytext[j];	} var_type[i] = '\0';
-		printabs(); fprintf(file, "\t\t<type>%s</type>\n", var_type);
-		
-		while(yytext[j] == ' ' || yytext[j] == '\t')	{	j++;	}
-		for(i = 0; yytext[j] != ' ' && yytext[j] != '\t' && yytext[j] != '=' && yytext[j] != ',' && yytext[j] != ')'; i++, j++) { var_name[i] = yytext[j]; } var_name[i] = '\0';
-		printabs(); fprintf(file, "\t\t<name>%s</name>\n", var_name);
-		
-		while(yytext[j] != ',' && yytext[j] != ')')	{ j += 1; }
-		printabs(); fprintf(file, "\t</argument>\n");
-	}
-
 	free(accesmod);
 	free(name);
-	free(var_type);
-	free(var_name);
 
-	BEGIN(throws);
+	// Comienza a comer los argumentos y despues las excepciones
+	BEGIN(arguments);
 }
 
-	/* Cache el nombre de un metodo que puede ser o no estatico*/
+	/* Cache la firma de un metodo que puede ser o no estatico*/
 ({ALEVEL}{SPACES})?({STATIC}{SPACES})?{RETURN}{SPACES}{NAMEMETHOD} {
 
 	char *accesmod = malloc(yyleng);
@@ -511,6 +490,225 @@ NAMEVAR [a-zA-z0-9_]+
 	// Checamos todos los argumentos que recibe este metodo ademas de las excepciones e ignorar el contenido del metodo
 	BEGIN(arguments);
 }
+
+	/* Cache la firma de un metodo que puede ser o no estatico, ademas de que es abstract o final*/
+({ALEVEL}{SPACES})?({STATIC}{SPACES})?({ABSTRACT}|{FINAL}){SPACES}{RETURN}{SPACES}{NAMEMETHOD} {
+
+	char *accesmod = malloc(yyleng);
+	char *name = malloc(yyleng);
+	char *type_return = malloc(yyleng);
+	
+	int i = 0, j = 0, num_args = 0;
+
+	while(yytext[j] != '(') {
+		i = 0;
+		while(yytext[j] != ' ' && yytext[j] != '\t' && yytext[j] != '(' )	{	j++;	}
+		while(yytext[j] == ' ' || yytext[j] == '\t')	{	j++; i = 1;	}
+		if(i == 1) { num_args++; }
+	}
+	if(yytext[j-1] == ' ' || yytext[j-1] == '\t')
+		num_args -= 1;
+
+	printabs();	fprintf(file, "<method>\n");
+
+	switch(num_args) {
+		case 2 :
+			printabs(); fprintf(file, "\t<accesmod>protected</accesmod>\n");
+			break;
+		case 3 :
+			i = 0;
+			if(yytext[0] == 's') {
+				printabs(); fprintf(file, "\t<accesmod>protected</accesmod>\n");			
+				printabs(); fprintf(file, "\t<static>TRUE</static>\n");
+			} else {				
+				while(yytext[i] != ' ' && yytext[i] != '\t') { i++; }
+				for(j = 0; j < i; j++) { accesmod[j] = yytext[j]; } accesmod[j] = '\0';
+				printabs(); fprintf(file, "\t<accesmod>%s</accesmod>\n", accesmod);
+			}
+			break;
+		case 4 :
+			for(i = 0; yytext[i] != ' ' && yytext[i] != '\t'; i++) { accesmod[i] = yytext[i]; } accesmod[i] = '\0';
+			printabs(); fprintf(file, "\t<accesmod>%s</accesmod>\n", accesmod);			
+			printabs(); fprintf(file, "\t<static>TRUE</static>\n");
+			break;
+	}
+
+	// Nombre del metodo
+	while(yytext[j] != '(') { j++; }
+	j--;
+	while(yytext[j] ==' ' || yytext[j] == '\t') { j--; }
+	while(yytext[j] != ' ' && yytext[j] != '\t' && j > 0) { j--; }
+	if(j > 0) { j++; }
+	for(i = j; yytext[i] != ' ' && yytext[i] != '\t' && yytext[i] != '('; i++) { name[i - j] = yytext[i]; } name[i - j] = '\0';
+	
+	// Tipo de retorno del metodo
+	j--;
+	while(yytext[j] ==' ' || yytext[j] == '\t') { j--; }
+	while(yytext[j] != ' ' && yytext[j] != '\t' && j > 0) { j--; }
+	if(j > 0) { j++; }
+	for(i = j; yytext[i] != ' ' && yytext[i] != '\t' && yytext[i] != '('; i++) { type_return[i - j] = yytext[i]; } type_return[i - j] = '\0';
+
+	// Decidimos si es abstrac o final
+	j--;
+	while(yytext[j] ==' ' || yytext[j] == '\t') { j--; }
+	if(yytext[j] == 'l') {
+		printabs(); fprintf(file, "\t<final>TRUE</final>\n");
+	} else {
+		printabs(); fprintf(file, "\t<abstract>TRUE</abstract>\n");
+	}
+	
+	printabs(); fprintf(file, "\t<return>%s</return>\n", type_return);
+	printabs(); fprintf(file, "\t<name>%s</name>\n", name);
+
+	// Checamos todos los argumentos que recibe este metodo ademas de las excepciones e ignorar el contenido del metodo
+	BEGIN(arguments);
+}
+
+	/* Cache la firma de un metodo que puede ser o no estatico, ademas de que es synchronized*/
+({ALEVEL}{SPACES})?({STATIC}{SPACES})?({SYNC}){SPACES}{RETURN}{SPACES}{NAMEMETHOD} {
+
+	char *accesmod = malloc(yyleng);
+	char *name = malloc(yyleng);
+	char *type_return = malloc(yyleng);
+	
+	int i = 0, j = 0, num_args = 0;
+
+	while(yytext[j] != '(') {
+		i = 0;
+		while(yytext[j] != ' ' && yytext[j] != '\t' && yytext[j] != '(' )	{	j++;	}
+		while(yytext[j] == ' ' || yytext[j] == '\t')	{	j++; i = 1;	}
+		if(i == 1) { num_args++; }
+	}
+	if(yytext[j-1] == ' ' || yytext[j-1] == '\t')
+		num_args -= 1;
+
+	printabs();	fprintf(file, "<method>\n");
+
+	switch(num_args) {
+		case 2 :
+			printabs(); fprintf(file, "\t<accesmod>protected</accesmod>\n");
+			break;
+		case 3 :
+			i = 0;
+			if(yytext[0] == 's') {
+				printabs(); fprintf(file, "\t<accesmod>protected</accesmod>\n");			
+				printabs(); fprintf(file, "\t<static>TRUE</static>\n");
+			} else {				
+				while(yytext[i] != ' ' && yytext[i] != '\t') { i++; }
+				for(j = 0; j < i; j++) { accesmod[j] = yytext[j]; } accesmod[j] = '\0';
+				printabs(); fprintf(file, "\t<accesmod>%s</accesmod>\n", accesmod);
+			}
+			break;
+		case 4 :
+			for(i = 0; yytext[i] != ' ' && yytext[i] != '\t'; i++) { accesmod[i] = yytext[i]; } accesmod[i] = '\0';
+			printabs(); fprintf(file, "\t<accesmod>%s</accesmod>\n", accesmod);			
+			printabs(); fprintf(file, "\t<static>TRUE</static>\n");
+			break;
+	}
+
+	// Nombre del metodo
+	while(yytext[j] != '(') { j++; }
+	j--;
+	while(yytext[j] ==' ' || yytext[j] == '\t') { j--; }
+	while(yytext[j] != ' ' && yytext[j] != '\t' && j > 0) { j--; }
+	if(j > 0) { j++; }
+	for(i = j; yytext[i] != ' ' && yytext[i] != '\t' && yytext[i] != '('; i++) { name[i - j] = yytext[i]; } name[i - j] = '\0';
+	
+	// Tipo de retorno del metodo
+	j--;
+	while(yytext[j] ==' ' || yytext[j] == '\t') { j--; }
+	while(yytext[j] != ' ' && yytext[j] != '\t' && j > 0) { j--; }
+	if(j > 0) { j++; }
+	for(i = j; yytext[i] != ' ' && yytext[i] != '\t' && yytext[i] != '('; i++) { type_return[i - j] = yytext[i]; } type_return[i - j] = '\0';
+	
+	printabs(); fprintf(file, "\t<synchronized>TRUE</synchronized>\n");
+	printabs(); fprintf(file, "\t<return>%s</return>\n", type_return);
+	printabs(); fprintf(file, "\t<name>%s</name>\n", name);
+
+	// Checamos todos los argumentos que recibe este metodo ademas de las excepciones e ignorar el contenido del metodo
+	BEGIN(arguments);
+}
+
+	/* Cache la firma de un metodo que puede ser o no estatico, ademas de que es abstract o final*/
+({ALEVEL}{SPACES})?({STATIC}{SPACES})?({ABSTRACT}|{FINAL}){SPACES}{SYNC}{SPACES}{RETURN}{SPACES}{NAMEMETHOD} {
+
+	char *accesmod = malloc(yyleng);
+	char *name = malloc(yyleng);
+	char *type_return = malloc(yyleng);
+	
+	int i = 0, j = 0, num_args = 0;
+
+	while(yytext[j] != '(') {
+		i = 0;
+		while(yytext[j] != ' ' && yytext[j] != '\t' && yytext[j] != '(' )	{	j++;	}
+		while(yytext[j] == ' ' || yytext[j] == '\t')	{	j++; i = 1;	}
+		if(i == 1) { num_args++; }
+	}
+	if(yytext[j-1] == ' ' || yytext[j-1] == '\t')
+		num_args -= 1;
+
+	printabs();	fprintf(file, "<method>\n");
+
+	switch(num_args) {
+		case 3 :
+			printabs(); fprintf(file, "\t<accesmod>protected</accesmod>\n");
+			break;
+		case 4 :
+			i = 0;
+			if(yytext[0] == 's') {
+				printabs(); fprintf(file, "\t<accesmod>protected</accesmod>\n");			
+				printabs(); fprintf(file, "\t<static>TRUE</static>\n");
+			} else {				
+				while(yytext[i] != ' ' && yytext[i] != '\t') { i++; }
+				for(j = 0; j < i; j++) { accesmod[j] = yytext[j]; } accesmod[j] = '\0';
+				printabs(); fprintf(file, "\t<accesmod>%s</accesmod>\n", accesmod);
+			}
+			break;
+		case 5 :
+			for(i = 0; yytext[i] != ' ' && yytext[i] != '\t'; i++) { accesmod[i] = yytext[i]; } accesmod[i] = '\0';
+			printabs(); fprintf(file, "\t<accesmod>%s</accesmod>\n", accesmod);			
+			printabs(); fprintf(file, "\t<static>TRUE</static>\n");
+			break;
+	}
+
+	// Nombre del metodo
+	while(yytext[j] != '(') { j++; }
+	j--;
+	while(yytext[j] ==' ' || yytext[j] == '\t') { j--; }
+	while(yytext[j] != ' ' && yytext[j] != '\t' && j > 0) { j--; }
+	if(j > 0) { j++; }
+	for(i = j; yytext[i] != ' ' && yytext[i] != '\t' && yytext[i] != '('; i++) { name[i - j] = yytext[i]; } name[i - j] = '\0';
+	
+	// Tipo de retorno del metodo
+	j--;
+	while(yytext[j] ==' ' || yytext[j] == '\t') { j--; }
+	while(yytext[j] != ' ' && yytext[j] != '\t' && j > 0) { j--; }
+	if(j > 0) { j++; }
+	for(i = j; yytext[i] != ' ' && yytext[i] != '\t' && yytext[i] != '('; i++) { type_return[i - j] = yytext[i]; } type_return[i - j] = '\0';
+
+	// Decidimos si es abstrac o final
+	j--;
+	while(yytext[j] ==' ' || yytext[j] == '\t') { j--; }
+	while(yytext[j] != ' ' && yytext[j] != '\t') { j--; }
+	while(yytext[j] ==' ' || yytext[j] == '\t') { j--; }
+	if(yytext[j] == 'l') {
+		printabs(); fprintf(file, "\t<final>TRUE</final>\n");
+	} else {
+		printabs(); fprintf(file, "\t<abstract>TRUE</abstract>\n");
+	}
+	
+	printabs(); fprintf(file, "\t<synchronized>TRUE</synchronized>\n");
+	printabs(); fprintf(file, "\t<return>%s</return>\n", type_return);
+	printabs(); fprintf(file, "\t<name>%s</name>\n", name);
+
+	// Checamos todos los argumentos que recibe este metodo ademas de las excepciones e ignorar el contenido del metodo
+	BEGIN(arguments);
+}
+
+
+
+
+
 
 <arguments>{
 \n	{ num_lines++; }
@@ -588,19 +786,6 @@ NAMEVAR [a-zA-z0-9_]+
 		}
 .		{}
 }
-
-
-	/* Cacha los metodos ademas de su lista de argumentos, NOTA : Tengo que implementar aun soporte para metodos final, abstract, synchronized y native */
-({ALEVEL}{SPACES})?({STATIC}{SPACES})?(({ABSTRACT}|{FINAL}){SPACES})?({NATIVE}{SPACES})?({SYNC}{SPACES})?{RETURN}{SPACES}{NAMEMETHOD}	{
-	printf("JAJA gral.\n");
-	printabs(); fprintf(file, "<method>\n");
-	// Checamos las posibles excepciones que arroja el metodo ademas de ignorar su contenido
-	BEGIN(throws);
-}
-
-
-
-
 
 
 
@@ -807,18 +992,21 @@ NAMEVAR [a-zA-z0-9_]+
 	while(yytext[i] != ' ' && yytext[i] != '\t') { i--; } i += 1;
 	for(j = i; j < yyleng; j++) { atrib_type[j - i] = yytext[j]; } atrib_type[j - i] = '\0';
 
+	// Comenzamos a leer todas las variables con mismo tipo
 	BEGIN(variables);
 }
-
-
 
 .   {} /* Cacha lo que sea que no este contemplado dentro de la sintaxis del lenguaje */
 
 %%
 main() {
-	file = fopen("Menu.java.xml","w");
+	file = fopen("Pedro.java.xml","w");
 	if(file == NULL) { printf("No mames ahora que chingados paso.\n"); }
 	yylex();
 	fclose(file);
 	printf("Fin de la ejecucion, se leyeron %d lineas.\n", num_lines);
+}
+
+int yywrap() {
+		return 1;
 }
