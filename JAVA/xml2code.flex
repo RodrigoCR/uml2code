@@ -86,7 +86,8 @@ char *pop(struct Stack *list) {
 	char *argument_type, *argument_name;
 
 	/* Atributos de una variable */
-	int var_abstract = 0, var_final = 0;
+	int var_abstract = 0, var_final = 0, var_static;
+	char *var_name, *var_type, *var_accesmod;
 	
 %}
 
@@ -204,10 +205,10 @@ char *pop(struct Stack *list) {
 			method_arguments = 0;
 		}
 
-		fprintf(file, ") ");
+		fprintf(file, ")");
 
 		if(method_throws) {
-			fprintf(file, "throws ");
+			fprintf(file, " throws ");
 			print_stack(throws);
 			fprintf(file, " ");
 			method_throws = 0;
@@ -219,10 +220,40 @@ char *pop(struct Stack *list) {
 			fprintf(file, ";\n\n");
 			method_abstract = 0;
 		} else {
-			fprintf(file, "{}\n\n");
+			fprintf(file, " {}\n\n");
 		}
 
 		is_constructor = 0;
+	}
+	
+	/*
+	* Imprime el contenido de una variable
+	*/
+	print_var() {
+		print_tabs();
+	
+		fprintf(file, "%s ", var_accesmod);
+		free(var_accesmod);
+		
+		if(var_static) {
+			fprintf(file, "static ");
+			var_static = 0;
+		}
+		
+		if(var_final) {
+			fprintf(file, "final ");
+			var_final = 0;
+		}
+		
+		if(var_abstract) {
+			fprintf(file, "abstract ");
+			var_abstract = 0;
+		}
+		
+		fprintf(file, "%s ", var_type);
+		fprintf(file, "%s;\n\n", var_name);
+		free(var_type);
+		free(var_name);
 	}
 %}
 
@@ -344,21 +375,13 @@ char *pop(struct Stack *list) {
 	method_accesmod[k] = '\0';
 }
 
-"<static>".+"</static>" {
-	method_static = 1;
-}
+"<static>".+"</static>" { 	method_static = 1;}
 
-"<abstract>".+"</abstract>" {
-	method_abstract = 1;
-}
+"<abstract>".+"</abstract>" { method_abstract = 1; }
 
-"<final>".+"</final>" {
-	method_final = 1;
-}
+"<final>".+"</final>" { method_final = 1; }
 
-"<synchronized>".+"</synchronized>" {
-	method_synchronized = 1;
-}
+"<synchronized>".+"</synchronized>" { method_synchronized = 1; }
 
 "<return>".+"</return>" {
 	method_return = malloc(yyleng);
@@ -474,13 +497,53 @@ char *pop(struct Stack *list) {
 }
 
 
-
 "<var>" {
+	if(load_class)
+		print_class();
 	BEGIN(variable);
 }
 
 <variable>{
+("<abstract>".+"</abstract>")|("<final>".+"</final>")|("<static>".+"</static>") {
+	switch(yytext[1]) {
+		case 'a': var_abstract = 1; break;
+		case 'f': var_final = 1; break;
+		case 's': var_static = 1; break;
+	}
+}
+("<name>".+"</name>")|("<type>".+"</type>")|("<accesmod>".+"</accesmod>") {
+	if(yytext[1] == 'n')
+		var_name = malloc(yyleng);
+	else if(yytext[1] == 't')
+		var_type = malloc(yyleng);
+	else
+		var_accesmod = malloc(yyleng);
+	int i = 0, j = yyleng - 1, k = 0;
+	
+	while(yytext[i] != '>')
+		i++;
+	while(yytext[j] != '<')
+		j--;
+
+
+	i++;
+	if(yytext[1] == 'n') {
+		for(; i < j; i++, k++)
+			var_name[k] = yytext[i];
+		var_name[k] = '\0';
+	} else if(yytext[1] == 't') {
+		for(; i < j; i++, k++)
+			var_type[k] = yytext[i];
+		var_type[k] = '\0';
+	} else {
+		for(; i < j; i++, k++)
+			var_accesmod[k] = yytext[i];
+		var_accesmod[k] = '\0';
+	}
+	
+}
 "</var>" {
+	print_var();
 	BEGIN(INITIAL);
 }
 . {}
