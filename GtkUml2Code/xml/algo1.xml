@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<class>
+			<accesmod>public</accesmod>
+			<name>ClassFahter</name>
+			<var>
+				<accesmod>public</accesmod>
+				<type>String[][]</type>
+				<name>innerVariable</name>
+			</var>
+		<method>
+			<accesmod>public</accesmod>
+			<return>int</return>
+			<name>resta</name>
+			<argument>
+				<type>int</type>
+				<name>op1</name>
+			</argument>
+		</method>
+		<var>
+			<accesmod>public</accesmod>
+			<static>TRUE</static>
+			<type>void</type>
+			<name>Main</name>
+		</var>
+</class>
