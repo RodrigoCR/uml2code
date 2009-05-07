@@ -5,10 +5,14 @@ Created on Apr 29, 2009
 '''
 
 import commands
+from string import split
+
+def gefilename(s):
+	return split(s,"/")[-1]
 
 
 def searchext(path,extention):
-    com= "find ./xml -type f -name \*"+extention
+    com= "find "+path+" -type f -name \*"+extention
     #list= os.popen(pat+args).read
     list= commands.getstatusoutput(com)
     
@@ -24,6 +28,12 @@ def searchext(path,extention):
     return files
 
 def executeParser(pathexec, filename ,extention):
-    if extention ==".java":
-        commands.getstatusoutput(pathexec+" < "+filename)
+    if extention ==".java" or extention ==".py":
+	print "se ejecuto : "+pathexec+ " "+filename +" < "+filename
+        commands.getstatusoutput(pathexec+ " "+filename +" < "+filename)
+	nombre = gefilename(filename)
+	print "el nombre es " + nombre
+	commands.getstatusoutput("cp "+filename +".xml ./xml/"+nombre+".xml")
+	commands.getstatusoutput("rm "+filename +".xml")
+	print "Se copia " + filename +".xml  a  ./xml/"+nombre+".xml"
     
